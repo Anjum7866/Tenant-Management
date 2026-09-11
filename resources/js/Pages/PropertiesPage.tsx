@@ -7,6 +7,8 @@ import { setStoredToken } from '@/services/api';
 import { propertyService } from '@/services/propertyService';
 import { managementService, type ManagementResource } from '@/services/managementService';
 import { ManagementCrudPanel } from '@/Components/management/ManagementCrudPanel';
+import { ManagementRecordModal } from '@/Components/management/ManagementRecordModal';
+import { ManagementEditModal } from '@/Components/management/ManagementEditModal';
 import type { User } from '@/types/auth';
 import type { DashboardResponse } from '@/types/dashboard';
 import type { Property, PropertyPayload } from '@/types/property';
@@ -88,6 +90,9 @@ export default function PropertiesPage({ activeSection, onNavigate, onLogout }: 
     const [lastPage, setLastPage] = useState(1);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProperty, setEditingProperty] = useState<Property | null>(null);
+    const [recordModalResource, setRecordModalResource] = useState<ManagementResource | null>(null);
+    const [editingRecord, setEditingRecord] = useState<{ resource: ManagementResource; record: Record<string, unknown> } | null>(null);
+    const [pendingDelete, setPendingDelete] = useState<{ resource: 'property' | ManagementResource; id: number; label: string } | null>(null);
     const [error, setError] = useState('');
 
     const loadData = async (nextPage = 1) => {
@@ -129,11 +134,7 @@ export default function PropertiesPage({ activeSection, onNavigate, onLogout }: 
         setError('');
         try {
             if (editingProperty) await propertyService.updateProperty(editingProperty.id, payload);
-            else {
-                const organizationId = user?.role === 'super_admin' ? window.prompt('Organization ID for this property') : null;
-                if (user?.role === 'super_admin' && !organizationId) return;
-                await propertyService.createProperty({ ...payload, ...(organizationId ? { tenant_id: Number(organizationId) } : {}) });
-            }
+            else await propertyService.createProperty(payload);
             setIsModalOpen(false);
             setEditingProperty(null);
             await loadData(page);
@@ -146,98 +147,44 @@ export default function PropertiesPage({ activeSection, onNavigate, onLogout }: 
     };
 
     const handleDelete = async (propertyId: number) => {
-        if (!window.confirm('Delete this property?')) return;
+        setPendingDelete({ resource: 'property', id: propertyId, label: 'property' });
+    };
+
+    const confirmDelete = async () => {
+        if (!pendingDelete) return;
         try {
-            await propertyService.deleteProperty(propertyId);
+            if (pendingDelete.resource === 'property') await propertyService.deleteProperty(pendingDelete.id);
+            else await managementService.remove(pendingDelete.resource, pendingDelete.id);
+            setPendingDelete(null);
             await loadData(page);
-            setDashboard(await propertyService.getDashboard());
+            await refreshDashboard();
         } catch {
-            setError('Unable to delete property.');
+            setError(`Unable to delete ${pendingDelete.label}.`);
         }
     };
 
     const refreshDashboard = async () => setDashboard(await propertyService.getDashboard());
 
-    const handleAddRecord = async (resource: ManagementResource) => {
+    const handleRecordSubmit = async (resource: ManagementResource, payload: Record<string, unknown>) => {
         try {
-            if (resource === 'tenants') {
-                const name = window.prompt('Tenant name');
-                const email = window.prompt('Tenant email');
-                const password = window.prompt('Temporary password (minimum 8 characters)');
-                if (!name || !email || !password) return;
-                const tenantId = user?.role === 'super_admin' ? window.prompt('Organization ID') : null;
-                if (user?.role === 'super_admin' && !tenantId) return;
-                await managementService.create(resource, { name, email, password, ...(tenantId ? { tenant_id: Number(tenantId) } : {}) });
-            } else if (resource === 'units') {
-                const propertyId = window.prompt('Property ID');
-                const unitNumber = window.prompt('Unit number');
-                const rent = window.prompt('Monthly rent');
-                if (!propertyId || !unitNumber || !rent) return;
-                const tenantId = user?.role === 'super_admin' ? window.prompt('Organization ID') : null;
-                if (user?.role === 'super_admin' && !tenantId) return;
-                await managementService.create(resource, { property_id: Number(propertyId), unit_number: unitNumber, monthly_rent: Number(rent), bedrooms: 1, bathrooms: 1, status: 'available', ...(tenantId ? { tenant_id: Number(tenantId) } : {}) });
-            } else if (resource === 'leases') {
-                const unitId = window.prompt('Unit ID');
-                const tenantUserId = window.prompt('Tenant user ID');
-                const rent = window.prompt('Monthly rent');
-                if (!unitId || !tenantUserId || !rent) return;
-                const tenantId = user?.role === 'super_admin' ? window.prompt('Organization ID') : null;
-                if (user?.role === 'super_admin' && !tenantId) return;
-                await managementService.create(resource, { unit_id: Number(unitId), tenant_user_id: Number(tenantUserId), start_date: new Date().toISOString().slice(0, 10), end_date: '2027-12-31', monthly_rent: Number(rent), security_deposit: 0, status: 'active', ...(tenantId ? { tenant_id: Number(tenantId) } : {}) });
-            } else if (resource === 'payments') {
-                const leaseId = window.prompt('Lease ID');
-                const tenantUserId = window.prompt('Tenant user ID');
-                const amount = window.prompt('Amount');
-                if (!leaseId || !tenantUserId || !amount) return;
-                const tenantId = user?.role === 'super_admin' ? window.prompt('Organization ID') : null;
-                if (user?.role === 'super_admin' && !tenantId) return;
-                await managementService.create(resource, { lease_id: Number(leaseId), tenant_user_id: Number(tenantUserId), amount: Number(amount), due_date: new Date().toISOString().slice(0, 10), status: 'pending', ...(tenantId ? { tenant_id: Number(tenantId) } : {}) });
-            } else if (resource === 'maintenance') {
-                const propertyId = window.prompt('Property ID');
-                const unitId = window.prompt('Unit ID');
-                const title = window.prompt('Request title');
-                const description = window.prompt('Description');
-                if (!propertyId || !unitId || !title || !description) return;
-                const tenantUserId = user?.role === 'tenant' ? user.id : Number(window.prompt('Tenant user ID'));
-                const tenantId = user?.role === 'super_admin' ? window.prompt('Organization ID') : null;
-                if (user?.role === 'super_admin' && !tenantId) return;
-                await managementService.create(resource, { property_id: Number(propertyId), unit_id: Number(unitId), tenant_user_id: tenantUserId, title, description, priority: 'medium', status: 'open', ...(tenantId ? { tenant_id: Number(tenantId) } : {}) });
-            } else if (resource === 'documents') {
-                const name = window.prompt('Document name');
-                const type = window.prompt('Document type: lease_agreement, id_verification, property_document, payment_receipt, other', 'other');
-                if (!name || !type) return;
-                const tenantId = user?.role === 'super_admin' ? window.prompt('Organization ID') : null;
-                if (user?.role === 'super_admin' && !tenantId) return;
-                await managementService.create(resource, { name, type, ...(tenantId ? { tenant_id: Number(tenantId) } : {}) });
-            } else {
-                const body = window.prompt('Message');
-                if (!body) return;
-                const tenantId = user?.role === 'super_admin' ? window.prompt('Organization ID') : null;
-                if (user?.role === 'super_admin' && !tenantId) return;
-                await managementService.create(resource, { body, ...(tenantId ? { tenant_id: Number(tenantId) } : {}) });
-            }
+            await managementService.create(resource, payload);
+            setRecordModalResource(null);
             await refreshDashboard();
         } catch {
             setError(`Unable to create ${resource.slice(0, -1)}.`);
         }
     };
 
-    const handleEditRecord = async (resource: ManagementResource, record: Record<string, unknown>) => {
+    const handleEditRecord = (resource: ManagementResource, record: Record<string, unknown>) => {
         const id = Number(record.id);
         if (!id) return;
+        setEditingRecord({ resource, record });
+    };
+
+    const handleRecordUpdate = async (resource: ManagementResource, record: Record<string, unknown>, payload: Record<string, unknown>) => {
         try {
-            if (resource === 'tenants') {
-                const name = window.prompt('Tenant name', String(record.name ?? ''));
-                const email = window.prompt('Tenant email', String(record.email ?? ''));
-                if (!name || !email) return;
-                await managementService.update(resource, id, { name, email });
-            } else {
-                const field = resource === 'messages' ? 'Message' : resource === 'documents' ? 'Document name' : resource === 'maintenance' ? 'Request title' : resource === 'units' ? 'Unit number' : 'Status';
-                const value = window.prompt(field, String(record.body ?? record.name ?? record.title ?? record.unit_number ?? record.status ?? ''));
-                if (!value) return;
-                const payload = resource === 'messages' ? { body: value } : resource === 'documents' ? { name: value } : resource === 'maintenance' ? { title: value } : resource === 'units' ? { unit_number: value } : { status: value };
-                await managementService.update(resource, id, payload);
-            }
+            await managementService.update(resource, Number(record.id), payload);
+            setEditingRecord(null);
             await refreshDashboard();
         } catch {
             setError(`Unable to update ${resource.slice(0, -1)}.`);
@@ -246,13 +193,7 @@ export default function PropertiesPage({ activeSection, onNavigate, onLogout }: 
 
     const handleDeleteRecord = async (resource: ManagementResource, record: Record<string, unknown>) => {
         const id = Number(record.id);
-        if (!id || !window.confirm(`Delete this ${resource.slice(0, -1)}?`)) return;
-        try {
-            await managementService.remove(resource, id);
-            await refreshDashboard();
-        } catch {
-            setError(`Unable to delete ${resource.slice(0, -1)}.`);
-        }
+        if (id) setPendingDelete({ resource, id, label: resource.slice(0, -1) });
     };
 
     const handleLogout = async () => {
@@ -327,7 +268,7 @@ export default function PropertiesPage({ activeSection, onNavigate, onLogout }: 
                                 <h2 className="text-xl font-semibold text-slate-900">Properties</h2>
                                 <p className="text-sm text-slate-500">Manage residential and commercial assets across your authorized portfolio.</p>
                             </div>
-                            {user?.role !== 'tenant' && <Button onClick={() => { setEditingProperty(null); setIsModalOpen(true); }}>+ Add Property</Button>}
+                            {user?.role === 'property_manager' && <Button onClick={() => { setEditingProperty(null); setIsModalOpen(true); }}>+ Add Property</Button>}
                         </div>
                         <div className="mt-5 grid gap-3 lg:grid-cols-[1.5fr_1fr_0.8fr]">
                             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name, city, or state" className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100" />
@@ -350,7 +291,7 @@ export default function PropertiesPage({ activeSection, onNavigate, onLogout }: 
                                         <td className="px-4 py-4"><div className="font-semibold text-slate-900">{property.name}</div><div className="mt-1 text-xs text-slate-500">{property.address}</div><div className="mt-1 text-xs text-indigo-600">{String(dashboard?.data.properties.find((record) => Number(record.id) === property.id)?.units_count ?? 0)} units · {String(dashboard?.data.properties.find((record) => Number(record.id) === property.id)?.tenants_count ?? 0)} tenants</div></td>
                                         <td className="px-4 py-4 text-slate-700">{property.property_type}</td><td className="px-4 py-4 text-slate-700">{property.city}, {property.state}</td>
                                         <td className="px-4 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${property.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700'}`}>{property.status}</span></td>
-                                        <td className="px-4 py-4"><div className="flex gap-2"><Button variant="secondary" onClick={() => { setEditingProperty(property); setIsModalOpen(true); }}>Edit</Button><Button variant="danger" onClick={() => void handleDelete(property.id)}>Delete</Button></div></td>
+                                        <td className="px-4 py-4">{user?.role === 'property_manager' && <div className="flex gap-2"><Button variant="secondary" onClick={() => { setEditingProperty(property); setIsModalOpen(true); }}>Edit</Button><Button variant="danger" onClick={() => void handleDelete(property.id)}>Delete</Button></div>}</td>
                                     </tr>)}</tbody>
                                 </table>
                             </div>
@@ -358,7 +299,7 @@ export default function PropertiesPage({ activeSection, onNavigate, onLogout }: 
                         </div>
                     ))}
 
-                    {(activeSection === 'units' || activeSection === 'tenants') && <ManagementCrudPanel resource={activeSection as 'units' | 'tenants'} canManage={user?.role === 'super_admin' || user?.role === 'property_manager'} />}
+                    {(activeSection === 'units' || activeSection === 'tenants') && <ManagementCrudPanel key={activeSection} resource={activeSection as 'units' | 'tenants'} canManage={user?.role === 'super_admin' || user?.role === 'property_manager'} />}
 
                     {dashboard && activeSection === 'dashboard' && <div className="mt-6 grid gap-6 xl:grid-cols-2">
                         <RecordList sectionId="dashboard-properties" title="Recent properties" records={dashboard.data.properties} />
@@ -383,12 +324,20 @@ export default function PropertiesPage({ activeSection, onNavigate, onLogout }: 
                             const canEdit = ['tenants', 'units', 'leases', 'payments', 'maintenance'].includes(resource) ? (isSuperAdmin || isManager) : false;
                             const canDelete = isSuperAdmin || (isManager && resource !== 'messages');
                             const addLabel = resource === 'units' ? 'Add Unit' : resource === 'tenants' ? 'Add Tenant' : resource === 'maintenance' ? 'Add Request' : resource === 'documents' ? 'Add Document' : resource === 'messages' ? 'New Message' : `Add ${title}`;
-                            return <RecordList key={sectionId as string} sectionId={sectionId as string} title={title as string} records={recordsList} canAdd={canAdd} canEdit={canEdit} canDelete={canDelete} addLabel={addLabel} onAdd={() => void handleAddRecord(resource)} onEdit={(record) => void handleEditRecord(resource, record)} onDelete={(record) => void handleDeleteRecord(resource, record)} />;
+                            return <RecordList key={sectionId as string} sectionId={sectionId as string} title={title as string} records={recordsList} canAdd={canAdd} canEdit={canEdit} canDelete={canDelete} addLabel={addLabel} onAdd={() => setRecordModalResource(resource)} onEdit={(record) => void handleEditRecord(resource, record)} onDelete={(record) => void handleDeleteRecord(resource, record)} />;
                         })}
                     </div>}
                 </main>
             </div>
 
+            {recordModalResource && <ManagementRecordModal resource={recordModalResource} user={user} isOpen={Boolean(recordModalResource)} onClose={() => setRecordModalResource(null)} onSubmit={(payload) => handleRecordSubmit(recordModalResource, payload)} />}
+            {editingRecord && <ManagementEditModal resource={editingRecord.resource} record={editingRecord.record} isOpen={Boolean(editingRecord)} onClose={() => setEditingRecord(null)} onSubmit={(payload) => handleRecordUpdate(editingRecord.resource, editingRecord.record, payload)} />}
+            <Modal isOpen={Boolean(pendingDelete)} title="Confirm deletion" onClose={() => setPendingDelete(null)}>
+                <div className="space-y-5">
+                    <p className="text-sm text-slate-600">Are you sure you want to delete this {pendingDelete?.label}? This action cannot be undone.</p>
+                    <div className="flex justify-end gap-3 border-t border-slate-200 pt-5"><Button type="button" variant="secondary" onClick={() => setPendingDelete(null)}>Cancel</Button><Button type="button" variant="danger" onClick={() => void confirmDelete()}>Delete</Button></div>
+                </div>
+            </Modal>
             <Modal isOpen={isModalOpen} title={editingProperty ? 'Edit Property' : 'Create Property'} onClose={() => { setIsModalOpen(false); setEditingProperty(null); }}>
                 <PropertyForm initialProperty={editingProperty} onSubmit={handleSubmit} onCancel={() => { setIsModalOpen(false); setEditingProperty(null); }} isSaving={saving} />
             </Modal>

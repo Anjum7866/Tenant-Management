@@ -32,7 +32,7 @@ class PropertyService
     public function createProperty(User $user, array $data): Property
     {
         return Property::create([
-            'tenant_id' => $user->isSuperAdmin() ? $data['tenant_id'] : $user->tenant_id,
+            'tenant_id' => $user->tenant_id,
             'name' => $data['name'],
             'property_type' => $data['property_type'],
             'address' => $data['address'],
@@ -46,7 +46,7 @@ class PropertyService
 
     public function updateProperty(User $user, Property $property, array $data): Property
     {
-        if (! $user->isSuperAdmin() && $property->tenant_id !== $user->tenant_id) {
+        if ($user->role !== 'property_manager' || $property->tenant_id !== $user->tenant_id) {
             abort(404);
         }
 
@@ -57,7 +57,7 @@ class PropertyService
 
     public function deleteProperty(User $user, Property $property): void
     {
-        if (! $user->isSuperAdmin() && $property->tenant_id !== $user->tenant_id) {
+        if ($user->role !== 'property_manager' || $property->tenant_id !== $user->tenant_id) {
             abort(404);
         }
 

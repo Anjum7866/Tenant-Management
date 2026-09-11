@@ -9,7 +9,7 @@ class UpdatePropertyRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->isSuperAdmin() || $this->user()?->role === 'property_manager';
+        return $this->user()?->role === 'property_manager';
     }
 
     public function rules(): array

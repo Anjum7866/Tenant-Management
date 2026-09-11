@@ -8,7 +8,7 @@ The system follows the workflow in `NewTenantLogic.md`:
 
 ## Roles and demo credentials
 
-Run `php artisan migrate:fresh --seed` to recreate the demo database. Every password below is intentionally different so each role can be tested independently.
+Run `php artisan migrate:fresh --seed` to recreate the demo database. The login page is prefilled with the Super Admin account, and the credentials below can be used to test each role.
 
 | Role | Organization | Name | Email | Password |
 | --- | --- | --- | --- | --- |
@@ -17,6 +17,8 @@ Run `php artisan migrate:fresh --seed` to recreate the demo database. Every pass
 | Tenant | Tenant A | Aarav Sharma | `tenant@tenant-a.test` | `tenant123` |
 | Property Manager | Tenant B | Tenant B Manager | `manager@tenant-b.test` | `manager123` |
 | Tenant | Tenant B | Meera Iyer | `tenant@tenant-b.test` | `tenant123` |
+
+The login page defaults to `superadmin@tms.test` / `superadmin123`. Property managers use `manager123`, and tenants use `tenant123`.
 
 ### Role visibility
 
