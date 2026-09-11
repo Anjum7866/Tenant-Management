@@ -7,6 +7,7 @@ export type User = {
     id: number;
     name: string;
     email: string;
+    role: 'super_admin' | 'property_manager' | 'tenant';
     tenant: Tenant;
 };
 

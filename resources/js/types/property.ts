@@ -14,6 +14,7 @@ export type Property = {
 };
 
 export type PropertyPayload = {
+    tenant_id?: number;
     name: string;
     property_type: string;
     address: string;

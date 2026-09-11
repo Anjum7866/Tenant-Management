@@ -46,7 +46,7 @@ class PropertyController extends Controller
 
     public function show(Request $request, Property $property): JsonResponse
     {
-        if ($property->tenant_id !== $request->user()->tenant_id) {
+        if (! $request->user()->isSuperAdmin() && $property->tenant_id !== $request->user()->tenant_id) {
             abort(404);
         }
 
@@ -55,7 +55,9 @@ class PropertyController extends Controller
 
     public function update(UpdatePropertyRequest $request, Property $property): JsonResponse
     {
-        if ($property->tenant_id !== $request->user()->tenant_id) {
+        abort_unless($request->user()->isSuperAdmin() || $request->user()->role === 'property_manager', 403);
+
+        if (! $request->user()->isSuperAdmin() && $property->tenant_id !== $request->user()->tenant_id) {
             abort(404);
         }
 
@@ -70,7 +72,9 @@ class PropertyController extends Controller
 
     public function destroy(Request $request, Property $property): JsonResponse
     {
-        if ($property->tenant_id !== $request->user()->tenant_id) {
+        abort_unless($request->user()->isSuperAdmin() || $request->user()->role === 'property_manager', 403);
+
+        if (! $request->user()->isSuperAdmin() && $property->tenant_id !== $request->user()->tenant_id) {
             abort(404);
         }
 

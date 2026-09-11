@@ -9,7 +9,7 @@ class StorePropertyRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user()?->isSuperAdmin() || $this->user()?->role === 'property_manager';
     }
 
     public function rules(): array
@@ -23,6 +23,7 @@ class StorePropertyRequest extends FormRequest
             'zip_code' => ['required', 'string', 'max:20'],
             'description' => ['nullable', 'string'],
             'status' => ['required', Rule::in(['active', 'inactive'])],
+            'tenant_id' => [Rule::excludeIf(fn () => ! $this->user()?->isSuperAdmin()), $this->user()?->isSuperAdmin() ? 'required' : 'nullable', 'integer', 'exists:tenants,id'],
         ];
     }
 }

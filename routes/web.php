@@ -11,7 +11,11 @@ Route::get('/', function () {
 
 Route::get('/dashboard', function () {
     return view('app');
-})->middleware(['auth', 'verified'])->name('dashboard');
+})->name('dashboard');
+
+Route::get('/{section}', function () {
+    return view('app');
+})->where('section', 'properties|units|tenants|leases|payments|maintenance|documents|messages');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

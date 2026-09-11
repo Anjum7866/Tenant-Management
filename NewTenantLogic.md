@@ -1,4 +1,10 @@
 ## BUSINESS DOMAIN — TENANT MANAGEMENT SYSTEM
+### Objective
+
+Build a clean, professional and production-minded **Multi-Tenant Hotel Management System** using:
+I have already setup of laravel breeze+Typescript start implementing in this
+- **Backend:** PHP 8+ / Laravel
+
 
 Build the application as a professional Multi-Tenant Tenant Management System (TMS) designed for landlords and property managers.
 

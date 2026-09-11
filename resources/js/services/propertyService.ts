@@ -1,6 +1,7 @@
 import { api } from './api';
 import { Property, PropertyPayload, PropertiesResponse } from '../types/property';
 import { LoginRequest, LoginResponse, User } from '../types/auth';
+import { DashboardResponse } from '../types/dashboard';
 
 export const propertyService = {
     async login(data: LoginRequest): Promise<LoginResponse> {
@@ -15,6 +16,11 @@ export const propertyService = {
     async me(): Promise<User> {
         const response = await api.get<{ user: User }>('/me');
         return response.data.user;
+    },
+
+    async getDashboard(): Promise<DashboardResponse> {
+        const response = await api.get<DashboardResponse>('/dashboard');
+        return response.data;
     },
 
     async getProperties(params: { search?: string; city?: string; status?: string; page?: number }): Promise<PropertiesResponse> {
