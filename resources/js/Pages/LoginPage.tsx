@@ -7,8 +7,8 @@ type LoginPageProps = {
 };
 
 export default function LoginPage({ onLogin }: LoginPageProps) {
-    const [email, setEmail] = useState('admin@tenant-a.test');
-    const [password, setPassword] = useState('password');
+    const [email, setEmail] = useState('superadmin@tms.test');
+    const [password, setPassword] = useState('superadmin123');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -39,7 +39,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
 
                 <div className="p-8">
                     <div className="mb-6 rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs font-medium text-indigo-700">
-                        Demo accounts: admin@tenant-a.test / admin@tenant-b.test • password
+                        Demo accounts: superadmin@tms.test / superadmin123; manager@tenant-a.test / manager123; manager@tenant-b.test / manager123; tenant@tenant-a.test / tenant123; tenant@tenant-b.test / tenant123
                     </div>
 
                     <form className="space-y-4" onSubmit={handleSubmit}>
@@ -48,14 +48,14 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                             type="email"
                             value={email}
                             onChange={(event) => setEmail(event.target.value)}
-                            placeholder="admin@tenant-a.test"
+                            placeholder="superadmin@tms.test"
                         />
                         <Input
                             label="Password"
                             type="password"
                             value={password}
                             onChange={(event) => setPassword(event.target.value)}
-                            placeholder="password"
+                            placeholder="superadmin123"
                         />
 
                         {error && (
